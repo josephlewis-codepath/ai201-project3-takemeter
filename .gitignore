@@ -1,0 +1,25 @@
+# Raw Reddit JSON pulled by scripts/browser_collect.js (~17MB, regenerable).
+# The labeled dataset in data/ is the graded artifact, not this.
+saved/
+*.json
+!evaluation_results.json
+
+# Chat download duplicates
+Claude outputs/
+
+# Secrets — the collector reads REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET
+# and Colab reads GROQ_API_KEY from the environment. Never commit them.
+.env
+.env.*
+*.key
+secrets*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
