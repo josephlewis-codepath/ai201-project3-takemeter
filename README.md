@@ -4,7 +4,7 @@ A class-weighted fine-tuned DistilBERT that sorts r/fantasyfootball posts into *
 
 **Joseph Lewis · AI201 Project 3**
 
-📹 **Demo video:** `‹PASTE LINK›`
+📹 **Demo video:** https://youtu.be/8LTiDB6DOrA 
 📓 **Colab notebook:** https://colab.research.google.com/drive/17rhO2vDojhJTnsaM5riGDD9gCviQv4vL
 📄 **Design doc:** [`planning.md`](planning.md) — written before data collection, updated twice as findings landed
 📊 **Dataset:** [`data/takemeter_labeled.csv`](data/takemeter_labeled.csv) · [`data/excluded_log.csv`](data/excluded_log.csv)
