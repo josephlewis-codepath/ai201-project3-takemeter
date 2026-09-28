@@ -1,38 +1,39 @@
 # TakeMeter — classifying discourse quality in r/fantasyfootball
 
-A fine-tuned DistilBERT classifier that sorts r/fantasyfootball posts into **analysis**,
-**hot_take**, and **reaction** — three ways a post can relate a claim to its support —
-benchmarked against a zero-shot Llama-4-Scout baseline on the same held-out test set.
+A class-weighted fine-tuned DistilBERT that sorts r/fantasyfootball posts into **analysis**, **hot_take**, and **reaction** — three ways a post can relate a claim to its support — benchmarked against a one-shot-per-class `openai/gpt-oss-120b` baseline on the same 57-example held-out test set.
 
 **Joseph Lewis · AI201 Project 3**
 
 📹 **Demo video:** `‹PASTE LINK›`
 📓 **Colab notebook:** https://colab.research.google.com/drive/17rhO2vDojhJTnsaM5riGDD9gCviQv4vL
-📄 **Design doc:** [`planning.md`](planning.md) — written before data collection
-📊 **Dataset:** [`data/takemeter_labeled.csv`](data/takemeter_labeled.csv)
-
-> **⚠️ Placeholders.** Everything written as `0.__`, `‹...›`, or in a `FILL AFTER RUN`
-> callout comes from the Colab run. Search the file for `‹` and `0.__` to find them all.
+📄 **Design doc:** [`planning.md`](planning.md) — written before data collection, updated twice as findings landed
+📊 **Dataset:** [`data/takemeter_labeled.csv`](data/takemeter_labeled.csv) · [`data/excluded_log.csv`](data/excluded_log.csv)
 
 ---
 
 ## Evaluation report summary
 
-> **FILL AFTER RUN** — from `evaluation_results.json`.
-
-| | Fine-tuned DistilBERT | Zero-shot Llama-4-Scout | Δ |
+| | Fine-tuned DistilBERT (class-weighted) | Baseline: gpt-oss-120b | Δ |
 |---|---|---|---|
-| Accuracy | `0.__` | `0.__` | `+0.__` |
-| **Macro-F1** | `0.__` | `0.__` | `+0.__` |
-| `analysis` F1 | `0.__` | `0.__` | `+0.__` |
-| `hot_take` F1 | `0.__` | `0.__` | `+0.__` |
-| `reaction` F1 | `0.__` | `0.__` | `+0.__` |
+| Accuracy | **0.667** | 0.596 | **+0.070** |
+| **Macro-F1** | **0.644** | 0.556 | **+0.088** |
+| Weighted-F1 | 0.667 | 0.580 | +0.087 |
+| `analysis` F1 | 0.593 | 0.500 | +0.093 |
+| `hot_take` F1 | 0.571 | 0.457 | +0.114 |
+| `reaction` F1 | 0.769 | 0.712 | +0.057 |
 
-**Did it clear the bar set in `planning.md` §6?** `‹yes / no — and which of the four
-criteria it missed›`
+Majority-class floor (always predict `reaction`): 0.456 accuracy. The fine-tuned model clears it by +0.211.
 
-Targets were: macro-F1 ≥ 0.70, no class F1 below 0.60, `analysis` recall ≥ 0.70, and at
-least +0.10 macro-F1 over the baseline.
+**Did it hit the §6 targets in planning.md? No — four for four, but two of them narrowly.**
+
+| Target | Result | |
+|---|---|---|
+| Macro-F1 ≥ 0.70 | 0.644 | miss by 0.056 |
+| No class F1 below 0.60 | lowest 0.571 (`hot_take`) | miss by 0.029 |
+| `analysis` recall ≥ 0.70 | 0.533 | miss by 0.167 |
+| ≥ +0.10 macro-F1 over baseline | +0.088 | miss by 0.012 |
+
+By my own definition this classifier is **not deployable**. Two thresholds were missed by margins smaller than a single test example is worth (1/57 = 0.018), which on a 57-example test set means they aren't distinguishable from noise — but I set them before seeing any data and I'm not moving them now. The honest summary: fine-tuning on 262 examples produced a model that beats a 120B general reasoning model on this task, and is still not good enough to put in front of users.
 
 ---
 
@@ -40,27 +41,11 @@ least +0.10 macro-F1 over the baseline.
 
 **r/fantasyfootball.**
 
-I picked it because it's one of the few large subreddits where the *same event* reliably
-produces all three kinds of discourse within minutes, in the same thread. A running back
-gets six carries in the first half, and the replies split into people pulling up his
-snap share, people declaring him done for the season, and people screaming in all caps
-because they benched the alternative. Topic held constant, manner of argument varying —
-which is exactly what makes this a real classification problem rather than a keyword
-lookup.
+It's one of the few large subreddits where the *same event* reliably produces all three kinds of discourse within minutes, in the same thread. A running back gets six carries in the first half, and the replies split into people pulling up his snap share, people declaring him done for the season, and people screaming in all caps because they benched the alternative. Topic held constant, manner of argument varying — which is what makes this a real classification problem rather than a keyword lookup.
 
-Two things make it a good fit beyond that. **Evidence here is concrete and checkable**:
-fantasy discourse runs on figures that actually exist — snap percentage, target share,
-route participation, red zone touches, opponent run-defense rank — so "backed by
-evidence" is a property I can verify while annotating instead of a vibe I have to
-intuit. And **the distinction is already a community norm**: users police take quality
-themselves, with "source: trust me bro," `!RemindMe 1 week`, and the weekly ritual of
-resurfacing last month's confident bad takes. I'm formalizing something the sub already
-does informally.
+Two things make it a good fit beyond that. **Evidence here is concrete and checkable**: fantasy discourse runs on figures that exist — snap percentage, target share, route participation, red zone touches, opponent run-defense rank — so "backed by evidence" is a property I can verify while annotating instead of a vibe I have to intuit. And **the distinction is already a community norm**: users police take quality themselves, with "source: trust me bro," `!RemindMe 1 week`, and the weekly ritual of resurfacing last month's confident bad takes.
 
-The consequence for the model is the interesting part: all three labels share the same
-vocabulary — player names, team names, "targets," "start" — so the classifier can't win
-by learning topic words. It has to pick up something about argument structure. Whether it
-actually did is the subject of §8.
+The consequence for the model is the interesting part: all three labels share the same vocabulary — player names, team names, "targets," "start" — so the classifier can't win by learning topic words. It has to pick up something about argument structure. Section 8 is about how far it got.
 
 ---
 
@@ -70,42 +55,23 @@ One axis: **how the post relates a claim to its support.**
 
 ### `analysis`
 
-The post argues toward an evaluative or predictive conclusion using at least one
-specific, checkable piece of support — a statistic, a usage figure (snaps, targets,
-routes, touches), a named matchup or scheme detail, or a historical comparison with
-particulars — and that support does real work, meaning the conclusion would lose its
-footing if you deleted it.
+The post argues toward an evaluative or predictive conclusion and rests that conclusion on something **checkable** — a figure, a named usage/scheme/matchup detail, or a specific verifiable event. Delete the support and the conclusion loses its footing.
 
-> "Bijan ran 71% of routes last week against 44% in weeks 1–3, and Allgeier's snap share
-> fell off a cliff coming out of the bye. That's a real usage change, not a one-week
-> blip. I'm buying at whatever the cost is."
+> "Bijan ran 71% of routes last week against 44% in weeks 1–3, and Allgeier's snap share fell off a cliff coming out of the bye. That's a real usage change, not a one-week blip."
 
-> "Kittle was limited Wednesday and Thursday and full on Friday. Historically 49ers tight
-> ends with that practice pattern have played around 85% of snaps that week. I'm starting
-> him over the safer floor guys."
+> "Kittle was limited Wednesday and Thursday and full on Friday. Historically 49ers tight ends with that practice pattern have played around 85% of snaps that week."
 
 ### `hot_take`
 
-The post states a confident evaluative claim about a player, team, or strategy without
-genuinely supporting it. Support is absent, vague ("he's been trash," "he doesn't look
-right"), or decorative — a figure picked for rhetorical effect that doesn't actually
-establish the claim being made.
+The post states a confident evaluative claim without checkable support. Support is absent, vague, an unfalsifiable personal impression, or decorative — a figure picked for effect that doesn't establish the claim. Confident qualitative characterization belongs here, however concrete it sounds.
 
 > "Bijan is the overall RB1 rest of season. Take it to the bank."
 
-> "Puka's target share is insane but Stafford throws him into coverage every other play.
-> Dude is cooked in this offense."
-
-The second one is the instructive example: it *contains* a real usage concept, but the
-evidence points against the conclusion, and "throws him into coverage every other play"
-is an unfalsifiable impression. The number is decoration.
+> "Puka's target share is insane but Stafford throws him into coverage every other play. Dude is cooked in this offense."
 
 ### `reaction`
 
-The post is an immediate emotional response to something that just happened — a
-touchdown, an injury, a blown lead, a lineup decision that went wrong. It expresses
-feeling rather than making or defending a claim about player value that could still be
-evaluated next week.
+The post exists to express feeling — celebration, anguish, rage, disbelief, mockery, humor — rather than to argue. It may contain an embedded claim and still be a reaction.
 
 > "WHY DID I BENCH HIM. Why. I looked at that lineup for forty minutes."
 
@@ -113,24 +79,11 @@ evaluated next week.
 
 ### The decision procedure
 
-Applied in this order to every example, which is what makes the labels mutually
-exclusive by construction:
+1. **Dominant mode.** Is expressing feeling what the post is *for*? Strip the attitude away — if only attitude is left, it's `reaction`, even with a claim embedded.
+2. **Checkable support.** Otherwise, does the claim rest on a figure, a named usage/scheme/matchup detail, or a specific verifiable event? Yes → `analysis`. Absent, vague, qualitative-only, or decorative → `hot_take`.
+3. Emotional **and** resting on checkable support → `analysis`. A well-argued rant is still an argument.
 
-1. **Is there a durable evaluative claim** — something judgeable as right or wrong next
-   week? No → `reaction`.
-2. **If yes, is there specific checkable support the claim actually rests on?** Yes →
-   `analysis`. Absent, vague, or decorative → `hot_take`.
-3. **Emotionally charged *and* carrying real evidence** → `analysis`. A well-argued rant
-   is still an argument.
-
-Two rules for the hard cases, both derived from stress-testing before annotation
-(`planning.md` §7a):
-
-- **A number only counts as support if it's used toward a claim**, not as an intensifier
-  for a complaint about an outcome. "Three targets. THREE." in a post about losing a
-  matchup is venting.
-- **An explicit generalization** ("every week," "all season," "he always") makes a post a
-  durable claim even on one game's evidence → `hot_take` rather than `reaction`.
+Steps 1 and 2 are stated in this sharpened form because the original versions were ambiguous, and a blind double-labeling exercise measured exactly how much (§8, and `planning.md` §7b). **"Specific" is not "checkable":** *"He can't sit in the pocket"* describes something real but nothing anyone could look up.
 
 ---
 
@@ -138,445 +91,309 @@ Two rules for the hard cases, both derived from stress-testing before annotation
 
 ### Source
 
-Public r/fantasyfootball comments and self-post bodies, collected through Reddit's
-unauthenticated `.json` endpoints with [`scripts/collect_reddit.py`](scripts/collect_reddit.py).
-No authentication, no private content, no scraping of anything behind a login.
+Public r/fantasyfootball comments and self-post bodies, collected through Reddit's `.json` endpoints using my own logged-in browser session ([`scripts/browser_collect.js`](scripts/browser_collect.js)), then parsed and cleaned by [`scripts/collect_reddit.py`](scripts/collect_reddit.py). Public content only, nothing behind authentication.
 
-Sampling was deliberately spread across five thread types, because pulling only from
-game threads would have produced an 80% `reaction` dataset and a model that learned
-nothing:
+Sampling deliberately spanned five thread types — game and post-game threads, rant threads, top-of-week and top-of-month posts, player discussion posts, and the sub-wide recent comment stream. Pulling only from game threads would have produced an 80% `reaction` dataset and a model that learned nothing.
 
-| Thread type | Why included |
-|---|---|
-| Sunday game / post-game threads | Highest emotional density — the `reaction` supply |
-| Weekly rant and "who are you dropping" threads | Complaints that generalize — the `reaction`/`hot_take` boundary |
-| Top posts of week and month | Longer, argued posts — the `analysis` supply |
-| Player-specific discussion posts | Mixed, closest to the real feed |
-| Sub-wide recent comment stream | Unfiltered realism, no cherry-picking |
+7,191 comments survived basic cleaning. From those I drew a **450-example annotation pool stratified by length only, never by content keywords** — sampling `analysis` candidates by "has digits" would have baked the digits-equals-analysis shortcut into the training data, which is the exact failure the plan warned about.
 
-Cleaning, applied before any label was assigned: URLs, `/u/` handles, `/r/` references
-and quoted parent comments stripped; comments under 4 words dropped (no signal for any
-label); posts truncated at 120 words; bots (AutoModerator, RemindMeBot, etc.), deleted
-and removed bodies dropped; near-duplicates removed on normalized text; bare advice
-requests ("Gibbs or Achane?") filtered out as out of scope per `planning.md` §3.
+Cleaning: URLs, `/u/` handles, `/r/` references and quoted parent comments stripped; posts under 4 words dropped; truncated at 180 words; bots, deleted and removed bodies dropped; near-duplicates removed; bare advice requests filtered as out of scope.
 
-`‹N›` raw examples were collected and `‹N›` survived cleaning and annotation.
+**375 labeled, 75 excluded** with reasons logged in `data/excluded_log.csv` — 19 advice requests, 23 off-domain medical and legal drift, 7 jokes, 7 too thin, 19 assorted meta and promo posts.
 
 ### Labeling process
 
-1. **Pre-labeling.** Batches of ~25 examples were passed to Claude with the §2
-   definitions and decision procedure verbatim, one label per post, no explanation. The
-   suggestion was written to a `prelabel` column.
-2. **Human review of every example.** I read each post and either confirmed or overrode
-   the suggestion, working from the decision procedure rather than from the suggested
-   label. Overriding forces you to articulate *why*, which is why this is faster and
-   sharper than labeling cold — the task becomes auditing rather than generating.
-3. **Notes on anything that gave me pause**, recorded in a `notes` column as I went
-   rather than reconstructed afterward.
-4. **Distribution check** against the 20% floor and 70% ceiling, followed by targeted
-   collection for any thin class rather than reweighting.
-
-**Override rate: `‹X›` of `‹N›` pre-labels changed (`‹__›%`).** `‹One sentence on where
-the disagreements clustered — if they concentrated on one label pair, say which.›`
+1. **Pre-labeling.** Claude labeled all 375 from the §2 definitions.
+2. **Blind double-labeling.** Rather than skim 375 pre-labels — which invites rubber-stamping — I labeled a random **75 blind**, with the model's labels hidden, using only the written procedure. Agreement: **42/75 = 56%, Cohen's κ = 0.324.**
+3. **Reconciliation.** That number said the definitions weren't doing the work I claimed. The disagreements were directional, not noise: 12 cases of `hot_take`→my `reaction` (step 1 ambiguity) and 10 of `analysis`→my `hot_take` (step 2 ambiguity). I wrote Rules A and B to encode my boundary, adopted my 75 blind labels as ground truth, and re-examined the other 300 under the new rules.
+4. **78 of 375 labels changed (20.8%).** The pre-reconciliation label is preserved in the CSV's `prelabel` column, so the revision is auditable.
 
 This is disclosed again in §10.
 
 ### Label distribution
 
-> **FILL AFTER ANNOTATION**
-
 | Label | Count | Share |
 |---|---|---|
-| `analysis` | `‹N›` | `__%` |
-| `hot_take` | `‹N›` | `__%` |
-| `reaction` | `‹N›` | `__%` |
-| **Total** | **`‹N›`** | 100% |
+| `reaction` | 172 | 45.9% |
+| `hot_take` | 108 | 28.8% |
+| `analysis` | 95 | 25.3% |
+| **Total** | **375** | 100% |
 
-Largest class is `__%`, inside the rubric's 70% ceiling and above the 20% floor I set
-for myself. Splits are 70/15/15, produced by the notebook: `‹N›` train / `‹N›` val /
-`‹N›` test.
+Largest class 45.9%, inside the 70% ceiling; smallest 25.3%, above the 20% floor I set myself. Stratified 70/15/15 → **262 train / 56 validation / 57 test**.
 
 ### Three examples that were genuinely hard to label
 
-**1. The stat-flavored rant.**
+**1. Stats with no claim attached.**
 
-> `‹paste the real example from your notes›`
-> *(e.g. "Started Kupp over Nacua and lost by 2. Three targets. THREE. In a game they
-> threw it 48 times.")*
+> "28 missed tackles, 247 yards after missed tackles. Yeesh."
 
-Could be `analysis` (it cites specific figures) or `reaction` (it's venting about a
-result). **Decided: `reaction`.** The numbers are intensifiers for a complaint about an
-outcome, not support for a claim about what happens next. The tell is that you can't
-state what the post is *arguing* — delete the numbers and nothing is lost except
-emphasis. Had it added "that's the third straight week under 5 targets while Nacua's
-route share climbs, he's droppable," the same figures would be doing real work and it
-would be `analysis`.
+Real figures, precisely the kind `analysis` is defined around. But "Yeesh" is the entire payload — there's no claim for the numbers to support. **Decided: `reaction`.** Step 1 resolves it before step 2 is ever reached, which is the clearest case for why the procedure is ordered rather than a checklist.
 
-**2. The generalized complaint.**
+**2. A specific play described in detail that never becomes a claim.**
 
-> `‹paste the real example›`
-> *(e.g. "8 targets, 2 catches. Every week.")*
+> "The Malachi Fields drop was so demoralizing. It was on Winston's 2nd drive, he threw a deep bomb and hit Fields who just dropped it. The Giants OL didn't hold up. I hope they stick with him"
 
-Could be `reaction` (short, frustrated, tied to a game) or `hot_take` ("every week" is a
-pattern claim). **Decided: `hot_take`.** The generalization makes the claim durable — it
-asserts something about the player that's still evaluable next Sunday — while the
-support is a single game's box score. That's exactly the "decorative evidence" case.
-Without "every week" I'd have labeled it `reaction`.
+Three verifiable specifics. **Decided: `reaction`.** The post is dismay plus a hope; the details convey how it felt rather than establishing anything. A post can be rich in checkable detail and still not be an argument.
 
-**3. The reasoned request.**
+**3. A rant that ends in a prediction.**
 
-> `‹paste the real example›`
-> *(e.g. a trade-eval post that lays out both rosters in detail and ends with "Thoughts?")*
+> "Fuck you Seahawks... it's wild how having a coaching philosophy of putting Charb in for 3/4th the plays and RZ makes a drastic difference... I expect KW3 to go down with a foot injury by game 5"
 
-Specific, well-reasoned, full of real information — and not a claim. **Decided: out of
-scope, excluded from the dataset.** A post whose primary speech act is asking for input
-sits on a different axis from the one I'm measuring; including it would have forced a
-fourth label or a catch-all bucket. This is a scoping decision and I'd rather state it
-than pretend the taxonomy is universal: TakeMeter classifies discourse, not transactions,
-and the sub contains both. Filtering is applied at collection time, so the ~90%
-exhaustiveness requirement holds *within my sampling frame*.
-
-`‹Add any further cases from your notes column — the rubric wants at least 3, but the
-honest ones you actually hit are more convincing than these three alone.›`
+That last clause is a durable, falsifiable claim, which by the letter of step 1 should push it out of `reaction`. **Decided: `reaction`** — the prediction is a curse, not a position being defended. This is the hardest of the three and the one I'd expect a second annotator to fight me on.
 
 ---
 
 ## 4. Fine-tuning
 
-**Base model:** `distilbert-base-uncased` (HuggingFace), with a 3-class sequence
-classification head.
-**Platform:** Google Colab, free T4 GPU.
-**Libraries:** `transformers`, `datasets`, `scikit-learn`.
-**Tokenization:** max length 256, truncation + dynamic padding.
-**Split:** 70/15/15 train/val/test, produced by the notebook from one CSV.
+**Base model:** `distilbert-base-uncased` (66M parameters) with a 3-class classification head.
+**Platform:** Google Colab, free T4 GPU. **Libraries:** `transformers`, `datasets`, `scikit-learn`.
+**Tokenization:** max length 256, truncation, dynamic padding. **Split:** 70/15/15, stratified, seed 42.
 
-### Training configuration
-
-| | Value |
+| | Final run |
 |---|---|
-| Epochs | 6 (best checkpoint kept) |
+| Epochs | 8 (best validation macro-F1 kept) |
 | Learning rate | 3e-5 |
 | Batch size | 16 train / 32 eval |
-| Warmup ratio | 0.1 |
-| Weight decay | 0.01 |
-| Checkpoint selection | best validation **macro-F1** |
+| Loss | cross-entropy with **inverse-frequency class weights** |
+| Class weights | `analysis` 1.323 · `hot_take` 1.149 · `reaction` 0.728 |
+| Checkpoint metric | validation macro-F1 |
 | Seed | 42 |
 
-### The hyperparameter decision: 3 epochs → 6, with best-checkpoint selection
+### The hyperparameter decision: class-weighted loss
 
-The starter default is 3 epochs. With ~`‹N›` training examples at batch size 16, that's
-roughly `‹N›` optimizer steps — not enough for the classification head to converge on a
-task where the signal is argument structure rather than vocabulary. `‹Describe what you
-actually observed: was training loss still falling at epoch 3?›`
+The starter defaults (3 epochs, lr 2e-5, unweighted) produced a model that **never predicted `hot_take` once in 57 test examples.** The entire middle column of the confusion matrix was zero. Accuracy read 0.561, which looks survivable until you notice that always guessing `reaction` scores 0.456 — fine-tuning had bought 10 points over a constant while quietly abandoning a third of the task.
 
-Running 6 epochs with `load_best_model_at_end=True` and macro-F1 as the selection metric
-buys the extra steps without paying for the overfit, because the checkpoint that gets
-kept is the one that peaked on validation rather than the last one.
+That's textbook majority-class collapse: `reaction` is 46% of the training data, `hot_take` is the hardest boundary, and with 262 examples the cheapest available strategy is to treat the hard class as noise.
 
-**Observed per-epoch validation macro-F1:**
+The fix was a weighted cross-entropy loss with weights set to inverse class frequency, so a `hot_take` error costs about 1.6× a `reaction` error, plus 8 epochs to give the harder boundary time to form.
 
-> **FILL AFTER RUN**
+| | Accuracy | Macro-F1 | `hot_take` F1 |
+|---|---|---|---|
+| Unweighted, 3 epochs | 0.561 | 0.413 | **0.000** |
+| Class-weighted, 8 epochs | **0.667** | **0.644** | **0.571** |
 
-| Epoch | 1 | 2 | 3 | 4 | 5 | 6 |
-|---|---|---|---|---|---|---|
-| Val macro-F1 | `0.__` | `0.__` | `0.__` | `0.__` | `0.__` | `0.__` |
+**+0.231 macro-F1** — far more than any epoch-count or learning-rate adjustment was going to produce, because the problem was never capacity. It was the incentive.
 
-Kept epoch `‹N›`. `‹One sentence on what the curve shows — did it plateau, peak and
-decline, or never stop improving? "Never stopped improving" would mean 6 epochs was also
-too few, which is worth saying.›`
+**Per-epoch validation macro-F1:**
 
-Learning rate went 2e-5 → 3e-5 on the same step-count reasoning; it's the smaller of the
-two calls. `‹Note if you saw instability and reverted.›`
+| Epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Val macro-F1 | 0.354 | 0.487 | 0.608 | 0.551 | 0.618 | 0.596 | 0.642 | **0.648** |
+
+Best checkpoint was epoch 8 — **the last one**. The curve never plateaued and never turned over, so the run was stopped by my epoch budget rather than by convergence. I report that as a limitation rather than a tuned result: more epochs would likely have helped, and I don't know where it tops out.
 
 ---
 
 ## 5. Baseline
 
-**Model:** `meta-llama/llama-4-scout-17b-16e-instruct` via Groq, zero-shot.
-**Temperature:** 0 — this is a measurement, so the same test example has to get the same
-label every run.
-**Max tokens:** 8, since the expected answer is one word.
+**Model: `openai/gpt-oss-120b` via Groq.** Temperature 0, `max_tokens=512`, `reasoning_effort="low"`.
 
-### How results were collected
+**This is a substitution, and it needs stating.** The spec mandates `meta-llama/llama-4-scout-17b-16e-instruct`. That model has been retired from Groq's free tier, and my account has no Llama chat model of any generation — the only general-purpose instruct models available were `gpt-oss-120b`, `gpt-oss-20b`, `qwen3.8-27b` and `allam-2-7b`. I used the largest.
 
-Every example in the **same held-out test set** the fine-tuned model is evaluated on was
-sent individually with the prompt below. Responses were lowercased, stripped to
-`[a-z_]`, and matched against the three label names, with a fallback that scans for a
-label name inside a longer reply (to salvage "label: hot_take"). Unparseable responses
-were **counted, not dropped** — `‹N›` of `‹N›` test examples (`‹__›%`) failed to parse.
+The direction of that bias matters: gpt-oss-120b is a *reasoning* model roughly 1,800× the size of DistilBERT, so it's plausibly a **stronger** baseline than Llama-4-Scout would have been. The substitution raises the bar my fine-tuned model had to clear, not lowers it.
 
-The baseline was run in Milestone 4, **before** the model was fine-tuned, so there was no
-opportunity to tune the prompt against a known target.
+**One-shot per class, not zero-shot.** The starter's prompt skeleton requires one example post per label, so the baseline saw three illustrative posts. Those examples are hand-written illustrations from `planning.md` §2, and I verified none appears anywhere in the dataset — so nothing from the test set reached the baseline. But calling it "zero-shot" would be inaccurate.
 
-### The prompt
+**How results were collected.** Each of the 57 test examples was sent individually with the §2 definitions and full decision procedure in the system prompt, output constrained to a bare label name. Responses were lowercased and matched against the label strings. **57/57 parsed — zero unparseable.** The baseline was run before the class-weighted model was trained, so there was no opportunity to tune it against a known target.
 
-The full label definitions and decision procedure from §2, verbatim, plus the two
-hard-case rules, ending with:
+**Per-class, baseline:**
 
-> Respond with exactly one word, lowercase, no punctuation, no explanation: analysis,
-> hot_take, or reaction.
+| Label | Precision | Recall | F1 | Support |
+|---|---|---|---|---|
+| `analysis` | **1.000** | 0.333 | 0.500 | 15 |
+| `hot_take` | 0.421 | 0.500 | 0.457 | 16 |
+| `reaction` | 0.636 | 0.808 | 0.712 | 26 |
 
-The complete prompt is in [`notebook_cells.md`](notebook_cells.md) §5.
+The `analysis` column is the interesting one: **perfect precision, 0.33 recall.** When gpt-oss-120b says "analysis" it is never wrong — it just only says it when a post is unmistakable. It applies the definition conservatively and correctly and misses two thirds of the class. The fine-tuned model trades that away (precision 1.00 → 0.67) for recall (0.33 → 0.53), which is the better trade for a tool meant to surface substantive posts.
 
-**Deliberately zero-shot, no few-shot examples.** Few-shot examples would be
-task-specific supervision drawn from the same distribution as the training set, which
-would turn "fine-tuned vs. baseline" into a comparison between two trained systems. The
-baseline is supposed to answer "how well does a general model do with nothing but my
-definitions," and adding examples would stop it answering that.
+### A note on the "unparseable" counter
 
-### Pre-training hypothesis
-
-Written before fine-tuning, per Milestone 4: `‹what you predicted the baseline would
-struggle with — mine was that it would over-predict analysis on any post containing a
-digit, and under-predict reaction on posts that are angry but literate›`.
-
-**Held up?** `‹FILL AFTER RUN›`
+The milestone says to treat >10% unparseable responses as a prompt problem. Mine reported **57/57 unparseable on three separate runs**, and the prompt was never the cause. The three actual causes were: a retired model ID returning 404 on every call; the prompt skeleton left unfilled, so the model was being asked to output `<label_1>`; and `gpt-oss-120b` being a reasoning model whose 20-token budget was consumed before any visible content was produced. `classify_with_groq()` catches API exceptions and parse failures in the same branch and reports both as a prompt issue. Counting transport errors separately from parse failures would have saved roughly two hours.
 
 ---
 
 ## 6. Results
 
-> **FILL AFTER RUN** — all numbers from `evaluation_results.json`.
-
 ### Overall
 
-| Model | Accuracy | Macro-F1 | Weighted F1 |
+| Model | Accuracy | Macro-F1 | Weighted-F1 |
 |---|---|---|---|
-| Fine-tuned DistilBERT | `0.__` | `0.__` | `0.__` |
-| Zero-shot Llama-4-Scout | `0.__` | `0.__` | `0.__` |
-| *Majority-class floor* | `0.__` | `0.__` | — |
-
-The majority-class row is there as a sanity check: a model that always predicts the
-largest class scores that accuracy while learning nothing. Anything close to it is not a
-result.
+| **Fine-tuned DistilBERT (class-weighted)** | **0.667** | **0.644** | **0.667** |
+| Baseline — gpt-oss-120b | 0.596 | 0.556 | 0.580 |
+| Fine-tuned, unweighted (superseded) | 0.561 | 0.413 | 0.463 |
+| *Majority-class floor* | *0.456* | *0.209* | — |
 
 ### Per-class — fine-tuned
 
 | Label | Precision | Recall | F1 | Support |
 |---|---|---|---|---|
-| `analysis` | `0.__` | `0.__` | `0.__` | `‹N›` |
-| `hot_take` | `0.__` | `0.__` | `0.__` | `‹N›` |
-| `reaction` | `0.__` | `0.__` | `0.__` | `‹N›` |
+| `analysis` | 0.667 | 0.533 | 0.593 | 15 |
+| `hot_take` | 0.526 | 0.625 | 0.571 | 16 |
+| `reaction` | 0.769 | 0.769 | 0.769 | 26 |
 
-### Per-class — zero-shot baseline
+### Confusion matrix — fine-tuned
 
-| Label | Precision | Recall | F1 | Support |
-|---|---|---|---|---|
-| `analysis` | `0.__` | `0.__` | `0.__` | `‹N›` |
-| `hot_take` | `0.__` | `0.__` | `0.__` | `‹N›` |
-| `reaction` | `0.__` | `0.__` | `0.__` | `‹N›` |
-
-### Confusion matrix — fine-tuned model
-
-Rows are true labels, columns are predictions. (`confusion_matrix.png` is a
-supplementary copy of this same table.)
+Rows are true labels, columns are predictions. (`confusion_matrix.png` is a supplementary copy of this table.)
 
 | true \ pred | analysis | hot_take | reaction | total |
 |---|---|---|---|---|
-| **analysis** | `_` | `_` | `_` | `_` |
-| **hot_take** | `_` | `_` | `_` | `_` |
-| **reaction** | `_` | `_` | `_` | `_` |
+| **analysis** | 8 | 4 | 3 | 15 |
+| **hot_take** | 3 | 10 | 3 | 16 |
+| **reaction** | 1 | 5 | 20 | 26 |
 
-`‹Read it directionally in one or two sentences. Which single off-diagonal cell is
-largest? analysis→hot_take means the model misses subtle argument structure;
-hot_take→analysis means it learned "contains digits ⇒ analysis." Those are different
-diagnoses and the matrix tells you which one you have.›`
+Read directionally: `reaction`→`hot_take` is the single largest off-diagonal cell (5), and `hot_take` is involved on one side or the other in **15 of 19 errors (79%)**. The `analysis`↔`hot_take` pair — the boundary this whole project is about — accounts for 7 of 19 (37%). The `reaction`↔`analysis` pair is nearly clean in one direction (1 error) and modest in the other (3), which says the model has learned that emotional venting and evidence-backed argument are different things. What it hasn't learned is where the middle is.
 
 ### Sample classifications
 
-Five posts run through the fine-tuned model, label and confidence as reported by the
-softmax over the classification head.
-
-> **FILL AFTER RUN** — use `predict()` from `notebook_cells.md`.
-
-| # | Post (truncated) | Predicted | Confidence | True | ✓/✗ |
+| # | Post (truncated) | True | Predicted | Confidence | ✓ |
 |---|---|---|---|---|---|
-| 1 | `‹...›` | `‹label›` | `__%` | `‹label›` | |
-| 2 | `‹...›` | `‹label›` | `__%` | `‹label›` | |
-| 3 | `‹...›` | `‹label›` | `__%` | `‹label›` | |
-| 4 | `‹...›` | `‹label›` | `__%` | `‹label›` | |
-| 5 | `‹...›` | `‹label›` | `__%` | `‹label›` | |
+| 1 | "Dude wouldn't even know the playbook" | reaction | reaction | 0.53 | ✓ |
+| 2 | "Sun god and adams here. Riding this high until puka comes back and adams goes back to putt..." | reaction | reaction | 0.90 | ✓ |
+| 3 | "Same. My WR room is screwed. I didn't see either injury coming because they were both fine..." | reaction | reaction | 0.85 | ✓ |
+| 4 | "They had a great first game. I'm feeling Dexter Lawrence has the defense on an upward mome..." | hot_take | analysis | 0.72 | ✗ |
+| 5 | "Just comes down to shit attitude and work ethic. NFL coaches are willing to put up with ba..." | hot_take | analysis | 0.51 | ✗ |
 
-**Why #`‹N›` is a reasonable prediction:** `‹Explain the correct one in terms of the
-label definition — what in the post triggered it. "The post names a specific usage
-figure and its conclusion depends on that figure, which is exactly the analysis
-definition, and the model's 94% confidence suggests it's reading the structure rather
-than guessing." Don't just say it was right.›`
+**Why #2 is a reasonable prediction.** "Sun god and adams here. Riding this high until puka comes back and adams goes back to putting up 5 points like weeks 1 lol" carries a real prediction — Adams will regress — and even a figure ("5 points"). A model keying on surface evidence markers would call that `analysis`. It called `reaction` at 0.90, which is correct under Rule A: the post exists to enjoy a good week, and the prediction is self-deprecating rather than defended. That's the model applying step 1 before step 2, which is exactly the ordering the taxonomy specifies.
 
 ---
 
 ## 7. Error analysis
 
-### Three specific wrong predictions
+19 errors out of 57.
 
-> **FILL AFTER RUN** — pull these from the actual test-set errors, not from examples you
-> invent. Each needs an explanation tied to the data, the label boundary, or the model's
-> behavior.
+### Three specific failures
 
-**Error 1 — `‹true›` predicted as `‹pred›`, confidence `__%`**
+**1. `hot_take` predicted as `analysis`, confidence 0.946 — the highest-confidence error in the set.**
 
-> `‹paste the post›`
+> "If you're down 63 and you're starting davante, the choice between dart and Stafford is easy. If davante has a big game, Stafford by default is probably going to have a big game as well. Obviously there's a chance davante has 150 yards and 2 tds while Stafford has 200 yards and 2 tds, but Stafford is the better play."
 
-`‹Why it failed. Tie it to something concrete: was the evidence present but phrased
-without digits, so the model's digit heuristic missed it? Was the post short enough that
-there was little to go on? Did the training set contain few examples of this shape?›`
+Long, calm, structured, full of numbers — and every one of those numbers is **hypothetical**. "150 yards and 2 tds" is an invented scenario, not a fact about anything that happened. The reasoning is sound but rests on nothing checkable, which is precisely what puts it in `hot_take` under Rule B. The model was more confident here than almost anywhere else in the test set, which tells you it is reading *evidence-shaped text* rather than evidence. This is the clearest single demonstration that "specific" and "checkable" are different properties and the model has only learned the first.
 
-**Error 2 — `‹true›` predicted as `‹pred›`, confidence `__%`**
+**2. `analysis` predicted as `hot_take`, confidence 0.448 — the lowest-confidence error.**
 
-> `‹paste the post›`
+> "I really don't understand why people are worried. He had 10 fucking targets last game as a TE."
 
-`‹Why it failed.›`
+One checkable figure doing all the work: delete "10 targets" and the post is an empty reassurance. That's `analysis` by definition. The model hedged at 0.448 — near-uniform across three classes — because the post is short, profane and conversational in register, and everything else it has learned about `analysis` is long and calm. Its uncertainty is appropriate; its decision boundary is keyed to register rather than to whether the figure supports the claim.
 
-**Error 3 — `‹true›` predicted as `‹pred›`, confidence `__%`**
+**3. `analysis` predicted as `reaction`, confidence 0.925 — where the label is wrong, not the model.**
 
-> `‹paste the post›`
+> "I had him and rice, needed 47, got 45. Damn"
 
-`‹Why it failed. If you find you labeled two similar posts differently, say so — that's
-an annotation-consistency finding, and it's more valuable than a clean story.›`
+This is labeled `analysis` in the dataset. It should not be. Three precise numbers, all about one outcome, ending in "Damn" — this is the stat-flavored rant that `planning.md` §3 named as the anticipated hardest case, and Rule A sends it to `reaction` unambiguously. The label came from my blind pass, before Rules A and B existed, and it survived reconciliation because blind-pass labels were adopted as ground truth without re-checking them against the rules they later produced.
 
-### Systematic pattern
+**The model got this right at 0.925 confidence and was scored wrong for it.** Counted honestly, that isn't a model error. It's an annotation error — and it points at something systematic.
 
-`‹FILL — the generalizable observation, with counts. Per planning.md §7c: for every
-pattern, check how many errors it covers AND how often the same feature appears in
-correct predictions. A feature present in 4 of 11 errors and 30 of 28 correct predictions
-is not a pattern.›`
+### The systematic pattern: errors track the annotation method
 
-**Patterns proposed by the AI pass that I discarded, and why:** `‹List them. The
-discards show the verification actually happened, and the rubric's AI-usage point wants
-to see what you overrode.›`
+Following the failure-analysis plan in `planning.md` §7c, I gave the full error set to Claude and asked for patterns, then verified each by counting rather than accepting the story. The pattern that survived: **errors concentrate on the examples I labeled in the blind pass.**
+
+The dataset has two provenances — 75 examples labeled by me blind (before Rules A and B existed), and 300 labeled by applying those rules afterward. 15 of the 57 test examples come from the blind pass.
+
+| Label source | n in test | errors | error rate |
+|---|---|---|---|
+| Blind pass (pre-rules) | 15 | 9 | **60.0%** |
+| Rule-applied (post-rules) | 42 | 10 | **23.8%** |
+| Overall | 57 | 19 | 33.3% |
+
+**2.5× the error rate, Fisher exact p = 0.023.** The model is substantially worse on exactly the subset of labels produced by a process that a κ of 0.324 had already flagged as inconsistent, and better on the subset produced by applying explicit written rules.
+
+The most defensible reading is that a meaningful share of the "errors" on blind-pass examples are label noise rather than model failure, as failure 3 demonstrates concretely. The training set carries the same contamination in the same proportion, so the noise both degrades what the model learned and inflates the apparent error rate at evaluation.
+
+**Patterns I discarded.**
+
+- *"Short posts fail more."* The errors span 5 to 60 words, and the shortest test examples are among the most reliably correct.
+- *"Sarcasm causes failures."* Only 2 of 19 errors are recognizably sarcastic — no more than their base rate in the test set.
+- *"Posts with digits get pulled toward `analysis`."* This is true and important as a mechanism (see failure 1), but as a *population-level pattern* it doesn't hold: several digit-bearing posts are classified correctly, and `reaction`→`analysis` is the rarest cell in the matrix at 1 case. I'm reporting it as a mechanism visible in individual high-confidence failures, not as a regularity across the error set.
 
 ---
 
 ## 8. What the model learned vs. what I intended
 
-`‹FILL — this is the 2-point section, so make it the most specific writing in the
-README. Not "it needs more data."›`
+I intended a model that reads **argument structure**: whether a claim rests on support that does work. What it appears to have learned is closer to **register plus evidence-shaped surface form.**
 
-The intent was a model that reads **argument structure**: whether a claim rests on
-support that does work. `‹What the decision boundary actually appears to track — the
-honest version. Candidates, pick what the evidence supports:›`
+The evidence, in order of strength:
 
-- `‹Surface evidence markers rather than evidential force — digits, percent signs, and
-  words like "snap share" push toward analysis regardless of whether the evidence
-  supports the conclusion. If true, the tell is that "Puka's target share is insane
-  but... dude is cooked" gets predicted analysis.›`
-- `‹Register and length rather than reasoning — long and calm reads as analysis, short
-  and capitalized reads as reaction, and hot_take becomes the residual bucket for
-  everything in between. If true, you'd expect hot_take to have the worst F1 of the
-  three.›`
-- `‹Specific vocabulary that leaked through — if a player name or a week number is
-  overrepresented in one class in the training data.›`
+**The highest-confidence errors are all cases where form and substance point in opposite directions.** The 0.946 failure is long, calm and numeric with entirely hypothetical numbers. The 0.925 failure is terse and profane with real numbers. Where a post *looks* like the class it belongs to, the model is right; where looking and being come apart, it follows looking. That is what having learned the proxy rather than the target means.
 
-`‹Then: what does the gap mean? The stat-flavored rant from §3 is the crux — I wrote
-the rule specifically because I anticipated this failure, and the model ‹did / did not›
-learn it. If it didn't, that's a real finding: a human-written decision rule doesn't
-transfer to the model just because the annotations follow it, unless the training set
-contains enough examples of the rule being applied. Say how many such examples were
-actually in your training split — if it's four, the model had no chance.›`
+**`reaction` works and the middle doesn't.** F1 by class: `reaction` 0.769, `analysis` 0.593, `hot_take` 0.571. `reaction` is separable on surface features the model has abundant signal for — profanity, caps, brevity, first-person framing, exclamation. `hot_take` is defined by what it *lacks* (checkable support), and absence has no surface form. With 76 training examples it never acquired a stable shape, which is why it's implicated in 79% of errors and why it collapsed entirely without class weighting.
 
-`‹Close with what would change it: more examples of the specific hard case, a tighter
-label definition, or an admission that 250 examples is not enough to teach evidential
-force and the honest ceiling for this approach is lower than I set.›`
+**The one thing I most wanted it to learn, it didn't.** Rule B — "specific" is not "checkable" — is the distinction that took a 56%-agreement blind pass to discover, and failure 1 shows the model does not hold it. I encoded it in the definitions, in the Groq prompt, and across 375 labels. But a rule stated in a definition is not a rule the model can see; it can only see whatever in the text correlates with the labels. Hypothetical numbers and real numbers look identical to a bag of subword tokens, and nothing in 262 examples taught it otherwise.
+
+**Part of the gap is mine, not the model's.** The provenance analysis says my labels aren't one thing: the blind-pass subset and the rule-applied subset encode measurably different boundaries, and the model was asked to learn their union. I told it to learn a distinction I had only half-articulated at the time I recorded a fifth of the labels.
+
+**What would actually change this**, in order of expected value:
+
+1. **Re-audit the 75 blind-pass labels against Rules A and B.** I know at least one is wrong, it takes half an hour, and it removes measurable noise from both training and test.
+2. **Collect targeted `hot_take` examples** — specifically long, calm posts with hypothetical or decorative numbers, since that's the exact configuration the model fails on and there are only 76 `hot_take` examples in training.
+3. **More epochs**, since validation macro-F1 was still climbing when the budget ran out.
+
+More data in general is the least useful of these. The problem isn't that the dataset is small; it's that the hard class is both rare and defined negatively.
 
 ---
 
 ## 9. Spec reflection
 
-**One way the spec helped.** `‹FILL. Strong candidate: the instruction to read 30–40
-posts before committing to labels, and to find one genuinely ambiguous post and write
-its decision rule. The stat-flavored rant rule in §2 came directly out of that exercise,
-before annotation, which means it was applied consistently across all 250 examples
-instead of being invented halfway through and applied to the second half only.›`
+**One way the spec helped.** The instruction to define labels with two examples each and name the hardest anticipated edge case *before* annotating forced the stat-flavored-rant rule into existence in advance, which meant it was applied consistently across all 375 examples rather than invented halfway through. More than that, having written definitions is what made the blind double-labeling interpretable: when agreement came back at 56%, I could point at *which clause* was ambiguous in each of the two disagreement buckets and write Rules A and B to fix them. Without the spec's insistence on written definitions up front, I'd have had a bad number and no idea what produced it.
 
-**One way the implementation diverged, and why.** `‹FILL. Strong candidate: the spec
-says 200 examples; I collected ‹N›, because 200 leaves a 30-example test set where each
-class has ~10 examples and a single flip moves per-class F1 by ~0.05 — per-class metrics
-I couldn't defend. Second candidate: I filtered bare advice requests out of the sampling
-frame rather than building a fourth label, which trades universal coverage for clean
-boundaries; the spec's mutual-exclusivity requirement and its ≥90%-exhaustiveness
-requirement pull in opposite directions on a sub where a large share of posts are
-transactions rather than takes, and I chose exclusivity.›`
+**One way the implementation diverged, and why.** The spec mandates the Groq baseline run on `meta-llama/llama-4-scout-17b-16e-instruct`. That model no longer exists on Groq's free tier and my account has no Llama chat model at all, so the baseline runs on `openai/gpt-oss-120b` — a reasoning model, and plausibly a harder opponent than the spec intended (§5).
+
+A second, smaller divergence: the spec asks for 200 examples and I collected 375. At 200 the test set is 30 examples with per-class support around 10, where a single flip moves per-class F1 by roughly 0.05. Several of my conclusions — the class-weighting comparison, the provenance analysis — depend on per-class numbers, and at 30 test examples I couldn't have defended any of them.
 
 ---
 
 ## 10. AI usage
 
-**Instance 1 — label stress-testing (before annotation).**
-I gave Claude the three definitions and the edge-case rule and directed it to generate
-ten posts sitting on the boundary between two labels, then classified each myself using
-only the written definitions to find cases the definitions couldn't resolve. Eight
-resolved cleanly; two broke and each produced a new rule — the generalization rule
-("every week" → `hot_take`) and the primary-speech-act rule (advice requests out of
-scope). **What I overrode:** Claude proposed "Herbert just doesn't look right, I've
-watched every Chargers game" as genuinely ambiguous between `analysis` and `hot_take`,
-arguing that sustained personal observation is a form of evidence. I rejected that — an
-unfalsifiable impression is exactly what the `hot_take` definition's "vague" clause
-covers, and accepting it would collapse the boundary the whole project measures. I left
-the definition unchanged and added "unfalsifiable personal impression" to the vague list
-to make the ruling explicit.
+**1. Label stress-testing (before annotation).** I gave Claude the three definitions and asked it to generate ten posts sitting on the boundary between two labels, then classified each myself using only the written definitions. Eight resolved cleanly; two broke, and each produced a new rule. **What I overrode:** Claude proposed "Herbert just doesn't look right, I've watched every Chargers game" as genuinely ambiguous, arguing that sustained personal observation is a form of evidence. I rejected that — an unfalsifiable impression is exactly what the `hot_take` "vague" clause covers, and accepting it would collapse the boundary the project measures.
 
-**Instance 2 — annotation assistance (disclosed).**
-I used Claude to **pre-label** batches of ~25 collected examples, given the §2
-definitions and decision procedure verbatim. **Every pre-label was read and reviewed by
-me**, and the model's suggestion is preserved in the `prelabel` column of the committed
-CSV alongside my final `label`, so the override rate is auditable rather than asserted.
-I overrode `‹X›` of `‹N›` (`‹__›%`). `‹Say where the overrides clustered and give one
-concrete example of a suggestion you changed and why.›`
+**2. Annotation assistance (full disclosure).** Claude pre-labeled **all 375 examples** from the §2 definitions. Rather than review them one by one, I labeled a random 75 blind and measured agreement: **56%, κ = 0.324.** I then defined Rules A and B to encode my boundary, adopted my 75 blind labels as ground truth, and had Claude re-examine the remaining 300 under those rules. **78 labels changed (20.8%).** Every pre-reconciliation label is preserved in the CSV's `prelabel` column, so the revision is auditable rather than asserted. The 265 rule-applied labels I did not personally re-check are the residual risk here, and §7 quantifies what that kind of risk costs.
 
-**Instance 3 — failure-pattern analysis (after evaluation).**
-I gave Claude the full set of misclassified test examples and directed it to propose
-*systematic* patterns rather than per-example explanations. I then verified each proposed
-pattern against the error set by counting how many errors it covered and checking whether
-the same feature appeared just as often in correct predictions. `‹Which patterns survived
-and which I discarded — see §7.›`
+**3. Failure-pattern analysis (after evaluation).** I gave Claude all 19 misclassified test examples and asked for *systematic* patterns rather than per-example explanations, then verified each by counting. The provenance pattern survived and is reported with its test statistic; three proposed patterns did not survive and are listed in §7 with the counts that killed them. Claude also wrote the code that computed the provenance split, which I checked by confirming it reproduced the notebook's exact test set before trusting its output.
 
-**Instance 4 — scaffolding.**
-Claude drafted the collection script, the structure of this README and `planning.md`, and
-the Colab cells in `notebook_cells.md`. `‹Say what you changed — every number, every
-example, every judgment about your own data is yours, and the sections you rewrote should
-be named here.›`
+**4. Infrastructure and drafting.** Claude wrote the collection scripts, the class-weighted training cell and the evaluation cell, and drafted this README and `planning.md` from my decisions and my data. Every number in this document comes from notebook output. The judgments — which boundary to adopt when Claude's and mine disagreed, which patterns to believe, whether to call the classifier deployable — are mine. In the one case where they conflicted directly (§7 failure 3), the record shows the model was right and my label was wrong.
+
+---
+
+## 11. Stretch: confidence calibration
+
+Does a high-confidence prediction actually get it right more often?
+
+| Confidence bin | n | Accuracy | Mean confidence | Gap |
+|---|---|---|---|---|
+| 0.4 – 0.5 | 3 | 0.333 | 0.477 | −0.14 |
+| 0.5 – 0.6 | 9 | 0.667 | 0.557 | +0.11 |
+| 0.6 – 0.7 | 8 | 0.625 | 0.659 | −0.03 |
+| 0.7 – 0.8 | 5 | 0.400 | 0.735 | −0.34 |
+| 0.8 – 1.0 | 32 | 0.750 | 0.878 | −0.13 |
+
+**Expected calibration error: 0.131.** Weakly informative and poorly calibrated. The trend across the full range is positive — the bottom bin is 33% accurate and the top is 75% — so confidence carries *some* signal. But it isn't monotonic: the 0.7–0.8 bin is the *least* accurate in the table at 40%, worse than the 0.5–0.6 bin.
+
+And the model is systematically overconfident where it matters most. 32 of 57 predictions land in the top bin averaging 0.878 confidence and are right 75% of the time — a 13-point gap on more than half the test set. Section 7's failure 1 sits inside that bin at 0.946.
+
+Practically: you could not use this model's confidence as a filter. Thresholding at 0.8 would retain 56% of predictions at 75% accuracy versus 67% unfiltered — a real but modest gain, and one that would silently discard correct low-confidence calls like failure 2, where hedging was the appropriate response to a genuinely hard post.
 
 ---
 
 ## Repo contents
 
 ```
-planning.md                    design doc, written before data collection
+planning.md                    design doc — written before collection, updated twice
 README.md                      this file — the evaluation report
-notebook_cells.md              label map, Groq prompt, training args, predict()
-scripts/collect_reddit.py      corpus collector (public .json endpoints)
-data/raw_unlabeled.csv         collector output, pre-annotation
-data/takemeter_labeled.csv     the labeled dataset
+notebook_cells.md              label map, Groq prompt, training args
+data/takemeter_labeled.csv     375 labeled examples (label + prelabel + notes)
+data/excluded_log.csv          75 exclusions with reasons
+scripts/browser_collect.js     browser-session collector
+scripts/collect_reddit.py      JSON parser and cleaner
+tools/annotate.html            blind annotation interface
 evaluation_results.json        exported from Colab
 confusion_matrix.png           exported from Colab (supplementary to §6's table)
-app.py                         Gradio interface (stretch)
 ```
 
 ## Reproducing
 
 ```bash
-python3 scripts/collect_reddit.py --out data/raw_unlabeled.csv --target 400
-# annotate data/raw_unlabeled.csv -> data/takemeter_labeled.csv
-# open the Colab notebook, set runtime to T4 GPU, upload the labeled CSV
-# run sections 1, 2, then 5 (baseline), then 3, 4, 6
+# 1. collect — paste scripts/browser_collect.js into Chrome's console on reddit.com
+# 2. parse
+python3 scripts/collect_reddit.py --files "saved/*.json" --out data/raw_unlabeled.csv
+# 3. annotate, then open the Colab notebook (T4 GPU) and upload data/takemeter_labeled.csv
+# 4. run sections 1 → 2 → 5 (baseline first) → 3 → 4, then the class-weighted cells
 ```
-
----
-
-## Stretch features
-
-`‹Delete the ones you don't attempt.›`
-
-**Inter-annotator reliability.** `‹Who labeled 30+ examples independently, the agreement
-rate (Cohen's κ or percentage), and an analysis of where you disagreed. The disagreements
-are the interesting part — if they cluster on one label pair, that pair's definition is
-the weak one.›`
-
-**Confidence calibration.** `‹The binned table from notebook_cells.md. Does the 0.9–1.0
-bin beat the 0.6–0.7 bin? Fine-tuned DistilBERT on a small set is usually overconfident;
-reporting that honestly is worth more than a flattering story.›`
-
-**Error pattern analysis.** `‹See §7's systematic-pattern subsection.›`
-
-**Deployed interface.** `‹Gradio app in app.py; document how to run it and show it in the
-demo video.›`

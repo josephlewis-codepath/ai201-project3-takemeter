@@ -1,0 +1,17 @@
+{
+  "baseline_model": "openai/gpt-oss-120b",
+  "baseline_accuracy": 0.5965,
+  "baseline_macro_f1": 0.5563,
+  "finetuned_weighted_accuracy": 0.6667,
+  "finetuned_weighted_macro_f1": 0.6444,
+  "majority_class_floor": 0.4561,
+  "test_set_size": 57,
+  "label_map": {
+    "analysis": 0,
+    "hot_take": 1,
+    "reaction": 2
+  },
+  "model": "distilbert-base-uncased (class-weighted, 8 epochs)",
+  "finetuned_unweighted_accuracy": 0.5614,
+  "finetuned_unweighted_macro_f1": 0.4128
+}
