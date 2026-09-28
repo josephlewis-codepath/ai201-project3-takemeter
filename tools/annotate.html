@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TakeMeter Blind Annotation</title>
+<style>
+  :root {
+    --bg:#f7f7f5; --card:#fff; --ink:#1c1c1a; --muted:#6b6b66; --line:#e2e2dd;
+    --analysis:#2f6f4f; --hot:#a8562a; --reaction:#3a5f8a; --accent:#1c1c1a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#17171a; --card:#1f1f23; --ink:#ececea; --muted:#9a9a95; --line:#32323a;
+      --analysis:#6bbd8e; --hot:#e0956a; --reaction:#7fa8d8; --accent:#ececea;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+  header { display:flex; justify-content:space-between; align-items:baseline;
+    gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+  h1 { font-size:17px; margin:0; letter-spacing:-.01em; }
+  .count { font-variant-numeric:tabular-nums; color:var(--muted); font-size:14px; }
+  .bar { height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin:12px 0 22px; }
+  .bar > i { display:block; height:100%; background:var(--accent); width:0; transition:width .2s; }
+  .post { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:26px 24px; font-size:18px; line-height:1.65; min-height:150px;
+    display:flex; align-items:center; white-space:pre-wrap; word-break:break-word; }
+  .btns { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:16px; }
+  button { font:inherit; font-size:15px; padding:14px 8px; border-radius:10px; cursor:pointer;
+    border:1px solid var(--line); background:var(--card); color:var(--ink); transition:.12s; }
+  button:hover { border-color:var(--accent); }
+  button b { display:block; font-weight:600; }
+  button small { color:var(--muted); font-size:12px; }
+  #b0 b { color:var(--analysis); } #b1 b { color:var(--hot); } #b2 b { color:var(--reaction); }
+  .nav { display:flex; justify-content:space-between; margin-top:14px; font-size:14px; }
+  .nav button { padding:7px 14px; font-size:14px; }
+  details { margin-top:26px; border-top:1px solid var(--line); padding-top:16px; font-size:14px; }
+  summary { cursor:pointer; color:var(--muted); }
+  details ol { padding-left:20px; } details li { margin:7px 0; }
+  .tally { display:flex; gap:16px; font-size:13px; color:var(--muted);
+    font-variant-numeric:tabular-nums; margin-top:10px; }
+  .done { text-align:center; padding:48px 20px; }
+  .done h2 { font-size:22px; margin:0 0 10px; }
+  .done button { margin-top:18px; padding:13px 26px; background:var(--accent);
+    color:var(--bg); border:none; font-weight:600; }
+  .hint { color:var(--muted); font-size:13px; text-align:center; margin-top:14px; }
+  @media (max-width:560px){ .btns{grid-template-columns:1fr;} .post{font-size:17px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app"></div>
+</div>
+<script>
+const POSTS = [{"i": 42, "text": "I didn't want him on my team (didn't want him to clog up my bench or cause me to root for a scumbag to get off a domestic violence charge) but I also wish he didn't go $1 or $2 in my 3 auctions."}, {"i": 302, "text": "Qb I can switch between mahomes and tlaw. Rb is probably always bijan and henderson. Wr is always adams watson and probably rice. Last flex can be boston, corum, Tate, M. Wilson. TE is always McBride. Week 11 i am fucked. But im 4-0 (median league) so if im doing well enough by then I may just take the L if I dont find any trades before then that I want."}, {"i": 88, "text": "On the contrary, I love when I have like Parker Washington lined up across from CD Lamb and they end up scoring roughly the same on Thursday night. Then I have Chase in my flex against Harrison or like RJ Harvey and Chase outscores them by 25."}, {"i": 350, "text": "I think all of the pass catchers on this bears team is going to bust for fantasy. Caleb is not good. He runs around in circles and makes that occasional eye opening off balance throw for a TD but he can’t sit in the pocket and pick apart a defense consistently. Then you got the coach running out Kalif Raymond over Rome and burden and rousch/Kmet over Loveland. These offensive “geniuses” just love to overthink the process. If I had to bet I’d say all of these pass catchers are going to be better with bagent at qb though. As soon as he came on burden caught 3 balls. He sat in the pocket, didn’t run around and just threw the ball where it was supposed to go."}, {"i": 347, "text": "I've made offers of Puka for Lamb, Puka for Jefferson, and Puka for Cook + Coker but not expecting them to be accepted. Considering offering him straight up for Jeanty."}, {"i": 82, "text": "Yeah the issue with Herbert to me is I don’t see how you can possibly have confidence in him after he just blew two cupcake matchups If he was a RB or WR where you need to start 2/3 of them, then ok I get sticking it out, but there’s so many QBs out there, it just doesn’t make sense to ride with Herbert Even Maye at least has the benefit of 2 tough matchups to start the year"}, {"i": 205, "text": "I had him and rice, needed 47, got 45. Damn"}, {"i": 234, "text": "Started him in both my leagues. Even moved Rice into my Flex to give Jalen the proper respect as a WR. jk Rice plays later but still i had faith in Jalen."}, {"i": 225, "text": "He's literally playing 90% of snaps and running almost every route. It's super frustrating right now but he'll get his soon"}, {"i": 238, "text": "Nailed it. Why manufacture touches for guys that don’t do jack with them? (I’d also add Michael Wilson to that list. Doesn’t get the buzz others do but if you watch the games that guy is always making big plays)."}, {"i": 130, "text": "Get ready for some 375 yard, 3 TD/4 INT games. lmao"}, {"i": 124, "text": "Gimme Joe Flacco back with Harbaugh"}, {"i": 96, "text": "But he's also fucking undroppable because he's fucking WR1 with always projected double digit scores and you start him and he gets you 5 points (half PPR) but as soon as you drop him another team picks him up on waivers and then he gets 9 catches for 2 TDs 😭"}, {"i": 308, "text": "I decided to bench him and play Dallas. Then I got him injured. So pretty exciting times."}, {"i": 189, "text": "I took Kincaid as a backup after LaPorta and drafted Kenneth Walker as a flex. Now I already got a trade flipping LaPorta and Chase Brown for JSN. Feels like I've fleeced my whole league"}, {"i": 251, "text": "How often do you win your leagues, out of curiosity? I usually take one of the top TEs (though not always), and while injuries sometimes burn me, I get a huge advantage at the position 2/3 years and have been winning leagues at about a 25% clip."}, {"i": 111, "text": "I was down by 38 and he scored 39 for me. Wonderful day"}, {"i": 110, "text": "It’s literally week two, the people that were unhappy before last night had a whopping sample of one game. Not to say Adams is a league winner but it’s not like he’s been a desert for 10 weeks. It’s week two."}, {"i": 197, "text": "I like Tet alot, he was fantastic for me last year, but it's fair to say the ADP was steep this year given Coker is likely to eat into a decent amount of his target share in a pretty inconsistent offence. From a fantasy pov, it is probably more likely he stays about the same vs making a big step forward this year. If you believe the panthers are taking a step this year, then the case is much more compelling of course, but that's the gamble imo."}, {"i": 46, "text": "\"Would've been fine if he found the end zone\" applies to 99% of low end RB 1s and high end RB2s though. The only issue is CMC wasn't drafted as a low end RB..."}, {"i": 44, "text": "Go ahead and put Jaylin Noel in there to make it worse"}, {"i": 349, "text": "Yeah I knew it was a tough schedule but I didn’t look at the specifics until just this past weekend haha"}, {"i": 229, "text": "Ouch. This is after I lost Hill last year. I'm cursed at WR. At least I drafted a ton of them this year, expecting to lose some. I guess I need Nabers to be healthy and take my wr2 spot, or I could be looking at someone like Wilson. Still like Jaxon as my #1 pick, even with a backup QB he still had a great game."}, {"i": 357, "text": "Malik was easiest fade of my lifetime this year"}, {"i": 278, "text": "He's carry the giant bag he got paid around with him, we need angry Baker"}, {"i": 329, "text": "Best thing to do with a guy like MHJ is try trading him packaged with a mid tier Flex guy for better depth at another position. Decent chance someone will take a shot at someone like MHJ if you’re giving them a solid second guy in return"}, {"i": 154, "text": "I had a pretty serious hernia in high school that was operated on in July and I wasnt on the field until the playoffs this was 2013 and my family was pretty well off so we had great surgeons/doctors/post care and I played for a powerhouse program with great trainers too. So that was best case scenario as it gets for that time, outside of millions of dollars worth of care and world class doctors I'm sure he'll be okay but still not good for fantasy. You can play through a hernia depending on how bad it is, but it fucking sucks"}, {"i": 285, "text": "It’s not even just a fantasy thing at this point Why would you draft a TE top 10, watch him have a breakout to end the season, then feed Kalif Raymond and a no name rookie Why do these “young offensive geniuses” overthink this stuff so often, I refuse to believe that Rosch and Kmet can do anything better than Loveland in the pass game"}, {"i": 178, "text": "Such extreme cope. Now MHJ can’t play as the boundary WR and that’s the schemes fault? Did you see DA the past two years? He’s literally the X in a Mcvay scheme… the Z is the focal point, but they’ve clearly chosen to give their more versatile, more competent, and more expensive WR that role."}, {"i": 192, "text": "It seems pretty obvious as training and techniques and diet and supplements have all improved that the speed and power of the game is on a whole different level these days. Guys weren't super durable back then, they just didnt make cuts and take hits like they do today. And everyone is faster. Average 40 times have gone up by like 15% at all positions. Weights are largely the same. So you just have way more force flying around than you used to. I bet most of those guys look waay different if they were playing out there in their primes in 2026."}, {"i": 334, "text": "As a bears fan I knew what the problem was. Naggy is great at destroying an offense"}, {"i": 353, "text": "Almost like the experts didn’t know he had a sprained ankle (since it wasn’t reported)"}, {"i": 280, "text": "MHJ has 2 \"true\" (not throw-away) targets this year. One across the middle that was behind him. Tough catch, maybe you hope he makes it. If it hit him in stride it's a big gain. The second, a deep contested pass down the sideline that he caught for a big gain."}, {"i": 221, "text": "And… Cowboys defense failing to ever stop the Giants. Like allowing that long of drives to never get ball back is more ugly than that penalty. Lets say he doesn’t do it. It doesn’t matter because Cowboys never got the ball back."}, {"i": 173, "text": "Healthiest QBs lol 💀"}, {"i": 91, "text": "Not to be that guy but if you have a strained groin that has lingered since week 1 in the preseason, I find it hard to believe it’s not a sports hernia Marshawn lynch also “didnt have a sports hernia” in 2015 then suddenly needed surgery"}, {"i": 196, "text": "This is good for his longevity (not just this season) but terrible for fantasy. You want him to score 23+ PPG with a chance of being injured over 16+ PPG with less chance of being injured. CMC owners picked him cause they want to gamble on the upside."}, {"i": 343, "text": "They deserve it for drafting a kicker outside of the last 2 rounds"}, {"i": 191, "text": "Madison sucked all the talent out of him its over guys"}, {"i": 287, "text": "The QB is abysmal though. We’ll find out more about who this year’s Falcons are hopefully when Penix plays tomorrow. Because for whatever shortcomings people think he has, he has demonstrated he can play way better than this. There were numerous examples of last year where the OC situation was a direct cause of the issues. For example, one game they couldn’t even get play calls in on time. This moved Zac Robinson to the sideline. I know people love to default complain about their OC if the offense sucks but man Robinson truly was bad. I’m not surprised at all Baker doesn’t feel right in this offense."}, {"i": 109, "text": "Yeah I was excited about my Dart, Nabers and Likely stack. Big loss."}, {"i": 135, "text": "They mentioned on the broadcast too, he had a bad drop and they made it a point to go right back to him and even give him the TD. That shows they believe in him and want him included"}, {"i": 22, "text": "I'll take an out as long as it's before waivers hit."}, {"i": 267, "text": "There’s a real chance Caleb has a dominant qb1 fantasy season. Their defense is a major part of that. Beyond that, I’ve been saying all summer that Deandre swift was the best value at adp in the draft at RB. Obviously there will be big hits in the late rounds but the price for swift was WAY too low. a set and forget starter at rb outside the top 30, why? Make it make sense! He’s not likely to be a top 5 RB but he’s a top 20 lock"}, {"i": 30, "text": "He wasn't great to begin with. His claim to fame is throwing a ton of TDs but also throwing a ton of INTs."}, {"i": 200, "text": "Yeah I'm essentially hoping that Black/Monangai can create an RB2 in the aggregate for me based on matchups (lol) and maybe trade away a receiver for an upgrade around like week 4. I've got essentially 5 startable receivers so if one of them pops off, might make it. Got Kaelon for 201/100 (I outbid the next guy by 26, there were 8 bids on him)"}, {"i": 218, "text": "I’m slightly panicking just don’t like his injury situation. It’s super weird. Not sure what to do. Currently at 2-0 but Puka is my guy at WR. Since my WRs are Puka, Evans, Jamo, dk, Marv and Malik Washington That’s my reason why i would wanna trade him"}, {"i": 94, "text": "Imagine getting hurt at your physical job and then every random gambling addict/alcoholic in the world that has never done your job before is on Reddit, Facebook, and X making fun of you."}, {"i": 275, "text": "Quinshon Judkins. He’s been terrible on the ground through the first two weeks. Could be a combination of poor run blocking and good run defenses. I was encouraged by his involvement in the passing game against the Bucs. Hopefully he’ll have better games moving forward."}, {"i": 100, "text": "The Jameis Winston special baby"}, {"i": 35, "text": "Im glad they announce this after i wasted faab on him"}, {"i": 276, "text": "To win with that high of a differential, you should no longer look at the highest expected performance and use stacking to make sure that both players either perform really well or you lose. A safe lineup can not save you from such a deficit; you need high variance. As another person commented, if you're down by such a large difference, you stack."}, {"i": 223, "text": "Why couldn’t it be Tee Higgins?"}, {"i": 212, "text": "What's the point of having one of the best backup QBs in the league if you aren't going to use him when needed?"}, {"i": 324, "text": "Guess you didn’t watch the game. Had 2 potential TDs Winston underthrew him on. He was getting open. Winston looked like a deer in the headlights."}, {"i": 369, "text": "Shouldn't scouts be projecting for that though? We do the same with QBs and arguably, that's the position where regardless of physical traits, it can take players years before they learn and feel comfortable at the pro levels. It's hard to imagine a situation where someone looks that good in college and instantly looks out of place in the pros."}, {"i": 145, "text": "All I know is the offense put up 50+ points and didn’t even think about this guy. Either they’re trolling us or he’s just not part of the game plan. This is a red flag, if next week Chicago has another big game like this and he’s not involved, we know what it is Edit - The highest scoring game in week 1 of NFL history and they didn’t even give him one catch. Literally a 0."}, {"i": 268, "text": "There’s literally 0% chance the Rams would let him miss practice for something like that lol"}, {"i": 180, "text": "Go back in time a few days and sell high on Likely. Really though, I think it’s too early to panic. Jameis looked atrocious last night but maybe he can still be productive with better prep as the starter. I’m probably just coping though because I also have both in my league."}, {"i": 78, "text": "kda player faking an injury to not fk up his stats."}, {"i": 309, "text": "I don’t think you should be THAT low on them. I didn’t like them coming into the year just because it’s so crowded, but they have shown they can and will throw the ball. Don’t think it’s super fair to take into account much of this weeks game because of the weather. As long as Caleb isn’t seriously injured I don’t think you have anything to worry about that you weren’t already worried about when you drafted them."}, {"i": 288, "text": "Normally RBs are given time to establish a rhythm. These days most teams run by committee but the carry distribution is way more consistent than what I was watching tonight. You could see it with the Rams, Kyren and Corum got alternating drives. Skatt’s carries felt like he had to pass D&D dice rolls to even get onto the field."}, {"i": 227, "text": "He's so bad in fantasy specifically because he's bad IRL. He's optimistically their 3rd best pass catcher, but unlike most supporting cast pass catchers, he's not elite at some relevant thing like zone beating or being an X. Maybe it'd work out more on another team that doesn't want him to be the X, but he's 6'3 220. He really should be an X."}, {"i": 345, "text": "Up 25 with my [maggoty] Rice vs his Walker and Buttker. F'n bullshit man. Whata shit start to the season"}, {"i": 175, "text": "I have Dart in all my leagues. I'm in trouble."}, {"i": 230, "text": "Marvin Harrison Jr was supposed to be as close of a sure thing 2000 yard reciever as it came. It was just over shadowed by Caleb Williams.. And he did it in college! I think this dude needs to go to another team and play for someone who believes in him."}, {"i": 289, "text": "He would be my RB2 behind Gibbs if we redrafted today, without a doubt. That said, I do think we are going to see some games for KC where they remember Patrick Mahomes is their QB and don't just fully commit to 30+ touches to KW3 every game. I fully believe Dan Campbell is insane enough to have 30+ touches be the literal gameplan for Gibbs every single week."}, {"i": 103, "text": "Ah, smart to do that while losing regular season games. I wish the league would add some sort of period before the season starts where teams get time to practice stuff like that."}, {"i": 341, "text": "His *one single great game of his career* is when he knocked me out of the playoffs when I had JaMarr Chase, Derrick Henry, Josh Allen, Swift, etc vs my opponent's Pitts and Jason Myers scoring a combined 85 points. Losing to Kyle Pitts and a kicker with that team (cost me picks in this season's draft because it's a keeper league) made me want to quit fantasy football forever."}, {"i": 176, "text": "My friend had this issue and it just kept dislocating until he got the surgery. I would imagine the chances are very high given what he does that it happens several more times."}, {"i": 319, "text": "I would've skipped on Puka if he landed on me because I'm scared I'd wake up to hear he got suspended for some random off field shit"}, {"i": 373, "text": "someone just offered me Devante Smith for Kincaid and AJ Brown it's weird i have to think about it"}, {"i": 372, "text": "If you're down 63 and you're starting davante, the choice between dart and Stafford is easy. If davante has a big game, Stafford by default is probably going to have a big game as well. Obviously there's a chance davante has 150 yards and 2 tds while Stafford has 200 yards and 2 tds, but Stafford is the better play. If you're down 40 or something, then maybe diversifying starts being an option, but if you're down big, you stack."}, {"i": 362, "text": "Surprisingly most of the first round has been fine so far. Except Puka and Saquon"}, {"i": 262, "text": "Got him in the middle of the 2nd. Hope he stays healthy because he looked amazing tonight"}];
+const LABELS = [
+  ["analysis","evidence does real work"],
+  ["hot_take","claim, no real support"],
+  ["reaction","feeling, no durable claim"]
+];
+const KEY = "takemeter_blind_v1";
+let ans = {}, cur = 0;
+try { ans = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e) { ans = {}; }
+try { while (cur < POSTS.length && ans[POSTS[cur].i] !== undefined) cur++; } catch(e) {}
+
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(ans)); } catch(e){} };
+const app = document.getElementById("app");
+
+function tally(){
+  const t = {analysis:0,hot_take:0,reaction:0};
+  Object.values(ans).forEach(v => t[v] !== undefined && t[v]++);
+  return t;
+}
+
+function render(){
+  const n = Object.keys(ans).length;
+  if (cur >= POSTS.length) return finish();
+  const p = POSTS[cur], t = tally();
+  app.innerHTML = `
+    <header>
+      <h1>TakeMeter &middot; blind pass</h1>
+      <span class="count">${cur+1} / ${POSTS.length}</span>
+    </header>
+    <div class="bar"><i style="width:${(n/POSTS.length*100).toFixed(1)}%"></i></div>
+    <div class="post">${p.text.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</div>
+    <div class="btns">
+      ${LABELS.map(([l,d],k)=>`<button id="b${k}" data-l="${l}">
+        <b>${l}</b><small>${k+1} &middot; ${d}</small></button>`).join("")}
+    </div>
+    <div class="nav">
+      <button id="back" ${cur===0?"disabled":""}>&larr; back</button>
+      <span class="tally">
+        <span>analysis ${t.analysis}</span><span>hot_take ${t.hot_take}</span><span>reaction ${t.reaction}</span>
+      </span>
+    </div>
+    <p class="hint">press 1, 2 or 3 &mdash; progress saves automatically</p>
+    <details>
+      <summary>decision procedure</summary>
+      <ol>
+        <li>Is there a <b>durable evaluative claim</b> &mdash; something judgeable right or wrong next week? No &rarr; <b>reaction</b>.</li>
+        <li>If yes, is there <b>specific checkable support the claim rests on</b>? Yes &rarr; <b>analysis</b>. Absent, vague or decorative &rarr; <b>hot_take</b>.</li>
+        <li>Emotional <i>and</i> carrying real evidence &rarr; <b>analysis</b>. A well-argued rant is still an argument.</li>
+      </ol>
+      <p>A number only counts as support if it is used <i>toward a claim</i>, not as an intensifier for a complaint about an outcome. An explicit generalization ("every week", "he always") makes a post a durable claim even on one game's evidence.</p>
+    </details>`;
+  LABELS.forEach(([l],k)=> document.getElementById("b"+k).onclick = ()=>pick(l));
+  const b = document.getElementById("back");
+  if (b) b.onclick = ()=>{ if(cur>0){cur--; render();} };
+}
+
+function pick(l){ ans[POSTS[cur].i] = l; save(); cur++; render(); }
+
+function finish(){
+  const t = tally();
+  app.innerHTML = `<div class="done">
+    <h2>All ${POSTS.length} labeled</h2>
+    <p class="count">analysis ${t.analysis} &middot; hot_take ${t.hot_take} &middot; reaction ${t.reaction}</p>
+    <button id="dl">Download blind_labels.csv</button>
+    <p class="hint">send that file back to Claude to score the agreement rate</p>
+    <p class="hint"><a href="#" id="again">start over</a></p>
+  </div>`;
+  document.getElementById("dl").onclick = ()=>{
+    const rows = [["i","pop_label"]].concat(POSTS.map(p=>[p.i, ans[p.i]||""]));
+    const csv = rows.map(r=>r.join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    a.download = "blind_labels.csv"; a.click();
+  };
+  document.getElementById("again").onclick = (e)=>{
+    e.preventDefault(); ans={}; cur=0; save(); render();
+  };
+}
+
+document.addEventListener("keydown", e=>{
+  if (cur >= POSTS.length) return;
+  if (e.key==="1") pick("analysis");
+  if (e.key==="2") pick("hot_take");
+  if (e.key==="3") pick("reaction");
+  if (e.key==="ArrowLeft" && cur>0){ cur--; render(); }
+});
+render();
+</script>
+</body>
+</html>
