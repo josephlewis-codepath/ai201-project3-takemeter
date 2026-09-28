@@ -72,6 +72,16 @@ The decision procedure I will apply to every example, in this order:
 
 This ordering makes the labels exclusive by construction: step 1 splits reaction from everything else, step 2 splits the remainder.
 
+### Rules A and B — added after the blind-pass disagreement
+
+Steps 1 and 2 as originally written both turned out to be ambiguous, and a blind double-labeling exercise (§7b) measured the cost: 56% agreement, Cohen's κ = 0.32. Two clarifications fix almost all of it.
+
+**Rule A — step 1 is about dominant mode, not the mere existence of a claim.** A post is `reaction` if expressing feeling is what the post is *for*, even when an evaluative claim is embedded in it. The test: strip the attitude and ask whether an argument is left, or only the attitude. "Madison sucked all the talent out of him its over guys" contains a claim about a player's future, but the post exists to dunk, not to argue. → `reaction`.
+
+**Rule B — step 2 requires evidence that is checkable, not merely specific.** `analysis` needs a figure, a named usage/scheme/matchup detail, or a specific verifiable event. Confident qualitative characterization does not qualify, however concrete it sounds. "He can't sit in the pocket and pick apart a defense consistently" describes something real but nothing anyone could look up. → `hot_take`.
+
+These two rules are why the taxonomy is now reproducible between two annotators rather than only inside one head. They also sharpen what the model is being asked to learn: not "does this post sound analytical" but "does it rest on something checkable."
+
 ---
 
 ## 3. Hard edge cases
@@ -201,7 +211,28 @@ Eight of ten classified cleanly. Two broke, and both produced a new rule:
 
 I overrode Claude on one of its suggested boundary cases: it proposed "Herbert just doesn't look right, I've watched every Chargers game" as ambiguous between `analysis` and `hot_take` on the grounds that sustained personal observation is a form of evidence. I don't accept that — an unfalsifiable impression is exactly what the `hot_take` definition's "vague" clause is for, and calling it evidence would collapse the boundary I'm trying to measure. Definition unchanged; I added "unfalsifiable personal impression" to the vague list to make the ruling explicit.
 
-### 7b. Annotation assistance — **yes, with full review and tracked overrides**
+### 7b. Annotation assistance — **yes, with a measured blind check**
+
+**What actually happened, and the number it produced.** Claude pre-labeled all 375 examples from the §2 definitions. Rather than audit all 375 by eye — which invites rubber-stamping — I labeled a random 75 of them blind, with the model's labels hidden, using only the written decision procedure.
+
+We agreed on 42 of 75: **56% raw agreement, Cohen's κ = 0.324** against 34.9% expected by chance. That is "fair" agreement on the standard scale, and it is a bad number for a taxonomy I had described as precise enough that two readers would agree on most cases. The definitions were not doing the work I claimed they were.
+
+The disagreements were not noise. Two directional buckets held 22 of the 33:
+
+| | count | what it revealed |
+|---|---|---|
+| Claude `hot_take` → my `reaction` | 12 | step 1 ambiguous: does a claim merely *exist*, or is claiming *the point*? |
+| Claude `analysis` → my `hot_take` | 10 | step 2 ambiguous: does "specific" mean *checkable*, or merely *concrete*? |
+
+My boundary sat one rung stricter than the model's on both steps. The remaining 11 disagreements scattered with no pattern.
+
+**Resolution.** Rules A and B in §2 encode my boundary, since it is my taxonomy. All 375 labels were then reconciled: my 75 blind labels adopted verbatim as ground truth, and the other 300 re-examined under the two new rules. **78 of 375 labels changed (20.8%)** — 33 from the blind pass, 45 from rule application. The v1 label is preserved in the CSV's `prelabel` column, so the full revision is auditable rather than asserted.
+
+Distribution moved from 34/29/37 to **25% `analysis` / 29% `hot_take` / 46% `reaction`** — still inside the 70% ceiling and above my 20% floor, so no targeted top-up was needed.
+
+**What this cost and what it bought.** It cost a day. It bought a taxonomy whose boundary is reproducible, and a concrete answer to the question the reflection section asks: the model will be trained on *my* boundary, measured, rather than on a boundary I assumed I shared with the tool that pre-labeled it.
+
+### 7b-appendix. Original plan for annotation assistance
 
 I will use Claude to pre-label the collected examples in batches, given the §2 definitions and the §3 decision rules verbatim. Every pre-label gets read and corrected by me; the point of pre-labeling is to change my task from "produce a label" to "audit a label," which is faster and, on the boundary cases, sharper — disagreeing with a stated label forces me to articulate why.
 
@@ -222,4 +253,5 @@ Verification step, because this is the place where an LLM will happily invent a 
 - *(initial)* Written before data collection, per Milestone 2.
 - *(post-collection)* Reddit closed unauthenticated `.json` access mid-project and gated API app creation behind an approval queue, so collection moved to a browser-session script (`scripts/browser_collect.js`) run against my own logged-in session. Sampling frame and cleaning rules are unchanged apart from the word cap below.
 - *(post-annotation)* Added the off-domain exclusion rule in §3 and raised the word cap to 180. Final dataset: 375 examples at 34% `analysis` / 29% `hot_take` / 37% `reaction`; 75 candidates excluded with logged reasons.
+- *(post-blind-check)* Blind double-labeling of 75 examples produced 56% agreement, κ = 0.324. Added Rules A and B to §2, reconciled all 375 labels (78 changed, 20.8%), distribution now 25/29/46. v1 labels preserved in the `prelabel` column.
 - *(to update)* Before starting stretch features.
